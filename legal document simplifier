@@ -1,0 +1,172 @@
+import streamlit as st
+import fitz  # PyMuPDF
+import openai
+from googletrans import Translator
+from langdetect import detect
+import time
+
+# OpenAI API Key (Replace 'your-api-key' with your actual key)
+openai.api_key = "your-api-key"
+
+# Streamlit Page Configuration
+st.set_page_config(page_title="AI Legal Document Simplifier", layout="wide", initial_sidebar_state="expanded")
+
+# Custom CSS for UI Enhancements
+st.markdown("""
+    <style>
+        body {
+            background: linear-gradient(to right, #8360c3, #2ebf91);
+            font-family: 'Arial', sans-serif;
+        }
+        .sidebar .sidebar-content {
+            background-color: #333;
+            color: white;
+        }
+        .stButton>button {
+            width: 100%;
+            border-radius: 12px;
+            font-size: 16px;
+            padding: 10px;
+            transition: all 0.3s ease-in-out;
+        }
+        .stButton>button:hover {
+            background-color: #007bff !important;
+            color: white !important;
+        }
+        .stMarkdown h1, .stMarkdown h2 {
+            color: #ffffff;
+        }
+        .floating-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #007bff;
+            color: white;
+            padding: 15px;
+            border-radius: 50%;
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease-in-out;
+        }
+        .floating-btn:hover {
+            background: #0056b3;
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# Sidebar Navigation
+st.sidebar.title("🔍 AI Legal Simplifier")
+page = st.sidebar.radio("Navigation", ["🏠 Home", "📜 Summarization", "🌍 Translation", "🔍 Language Detection"])
+
+# Extract text from PDF
+def extract_text_from_pdf(uploaded_file):
+    with st.spinner("🔄 Extracting text..."):
+        time.sleep(1.5)
+        try:
+            doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+            return "\n".join([page.get_text() for page in doc]) if doc else "No text found in PDF."
+        except Exception as e:
+            return f"Error extracting text: {str(e)}"
+
+# Summarize text
+def summarize_text(text):
+    with st.spinner("🔄 AI is summarizing..."):
+        time.sleep(2)
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[{"role": "system", "content": "Summarize this legal text."},
+                          {"role": "user", "content": text}]
+            )
+            return response["choices"][0]["message"]["content"].strip()
+        except Exception as e:
+            return f"Error in summarization: {str(e)}"
+
+# Translate text
+def translate_text(text, target_lang):
+    with st.spinner("🔄 Translating..."):
+        time.sleep(1.5)
+        try:
+            translator = Translator()
+            return translator.translate(text, dest=target_lang).text
+        except Exception as e:
+            return f"Error in translation: {str(e)}"
+
+# Detect language
+def detect_language(text):
+    with st.spinner("🔍 Detecting language..."):
+        time.sleep(1.2)
+        try:
+            return detect(text)
+        except Exception as e:
+            return f"Error detecting language: {str(e)}"
+
+# Home Page
+if page == "🏠 Home":
+    st.title("📜 AI-Powered Legal Document Simplifier")
+    st.markdown("""
+        **Features:**  
+        ✅ Upload and extract text from PDFs  
+        ✅ AI-powered summarization  
+        ✅ Multi-language translation  
+        ✅ Auto-detect language  
+        ✅ Download extracted, summarized, and translated documents  
+        """)
+    st.image("https://source.unsplash.com/800x400/?law,documents", use_column_width=True)  
+
+# Summarization Page
+elif page == "📜 Summarization":
+    st.title("📜 Summarization")
+    
+    option = st.radio("Choose Input Type:", ["Upload PDF", "Enter Text"])
+    extracted_text = ""
+
+    if option == "Upload PDF":
+        uploaded_file = st.file_uploader("📂 Upload a PDF File", type=["pdf"])
+        if uploaded_file:
+            extracted_text = extract_text_from_pdf(uploaded_file)
+
+    elif option == "Enter Text":
+        extracted_text = st.text_area("✍️ Enter legal text:")
+
+    if extracted_text:
+        if st.button("📜 Summarize Document"):
+            summary = summarize_text(extracted_text)
+            st.subheader("📄 Summary:")
+            st.write(summary)
+            st.download_button("📥 Download Summary", summary, file_name="summary.txt")
+
+# Translation Page
+elif page == "🌍 Translation":
+    st.title("🌍 Translate Document")
+    
+    input_text = st.text_area("✍️ Enter text to translate:")
+    lang = st.selectbox("🌍 Translate to:", ["es", "fr", "de", "hi", "zh-cn"], index=0)
+
+    if st.button("🌐 Translate"):
+        translated_text = translate_text(input_text, lang)
+        st.subheader("📝 Translated Text:")
+        st.write(translated_text)
+        st.download_button("📥 Download Translation", translated_text, file_name="translation.txt")
+
+# Language Detection Page
+elif page == "🔍 Language Detection":
+    st.title("🔍 Detect Language")
+
+    text_input = st.text_area("✍️ Enter text to detect language:")
+    if st.button("🔍 Detect"):
+        detected_lang = detect_language(text_input)
+        st.subheader("🌍 Detected Language:")
+        st.write(f"🌎 The detected language is **{detected_lang}**.")
+
+# Floating Button for Dark Mode (Simulation)
+st.markdown("""
+    <a class="floating-btn" href="#">
+        💡 Toggle Dark Mode
+    </a>
+""", unsafe_allow_html=True)
+
+st.sidebar.markdown("---")
+st.sidebar.info("🚀 Built for Legal Professionals & Researchers! Optimized with AI.")
+
+# Run in VS Code terminal with:
+# streamlit run app.py --server.port 8502
